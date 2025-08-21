@@ -1,6 +1,7 @@
 # Assignment 1
 
-## Total 14 marks 
+## Total 14 marks
+
 
 ## Decision Tree Implementation [6 marks]
 
