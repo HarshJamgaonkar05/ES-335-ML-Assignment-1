@@ -8,19 +8,18 @@ from sklearn.model_selection import KFold
 
 np.random.seed(42)
 
-# ---------------------------
-# Generate dataset
-# ---------------------------
+
+# Generating the dataset
+
 X, y = make_classification(
     n_features=2, n_redundant=0, n_informative=2,
     random_state=1, n_clusters_per_class=2, class_sep=0.5
 )
 
-# Convert to DataFrame/Series for our DecisionTree
+# First, we convert the dataset to DataFrame/Series for our DecisionTree
 X_df = pd.DataFrame(X, columns=["x0", "x1"])
 y_ser = pd.Series(y, dtype="category")
 
-# For plotting (optional)
 plt.figure()
 plt.scatter(X[:, 0], X[:, 1], c=y)
 plt.title("Synthetic classification dataset")
@@ -28,9 +27,8 @@ plt.show()
 
 
 
-# ---------------------------
-# Q2 (a): Train/test split 70/30
-# ---------------------------
+# Q2(a): Train/test split 70/30 to find the accuracy, precision and recall
+
 idx = np.arange(len(X_df))
 np.random.shuffle(idx)
 split_idx = int(0.7 * len(idx))
@@ -48,9 +46,8 @@ for cls in sorted(y_ser.unique()):
     print(f"Class {cls} Precision:", precision(y_hat, y_test, cls))
     print(f"Class {cls} Recall   :", recall(y_hat, y_test, cls))
 
-# ---------------------------
-# Q2 (b): 5-fold cross-validation with nested CV for depth
-# ---------------------------
+
+# Q2 (b): 5-fold cross-validation with nested cross validation to find the optimum depth of the tree
 
 def cross_val_score_for_depth(X, y, depth, n_splits=5):
     """
@@ -78,13 +75,12 @@ best_depth = depths[np.argmax(cv_scores)]
 print("\n=== Q2 (b) Results ===")
 print("Best depth found by nested CV:", best_depth)
 
-# Final retrain on full dataset at best depth
 final_tree = DecisionTree(criterion="information_gain", max_depth=best_depth)
 final_tree.fit(X_df, y_ser)
 print("Tree structure at best depth:")
 final_tree.plot()
 
-# Plot CV results
+# Plot Cross Validation results
 plt.figure()
 plt.plot(depths, cv_scores, marker="o")
 plt.xlabel("max_depth")
