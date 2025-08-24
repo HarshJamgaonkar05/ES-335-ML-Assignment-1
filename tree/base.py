@@ -13,15 +13,14 @@ import numpy as np
 import pandas as pd
 
 from tree.utils import (
-    one_hot_encoding,   # Converts categorical features into numeric dummy variables
-    check_ifreal,       # Detects if the target y is regression or classification
-    opt_split_attribute # Finds the best feature/threshold split
+    one_hot_encoding,   # This converts the categorical features into numeric dummy variables
+    check_ifreal,       # This will detect if the target variable y is regression or classification
+    opt_split_attribute # This functions helps to find the best feature or the threshold variable
 )
 
 np.random.seed(42)
 
 
-# --------------------------- Node container ---------------------------
 class _Node:
     """
     Internal node/leaf in the decision tree.
@@ -31,9 +30,9 @@ class _Node:
         self,
         depth: int,
         is_leaf: bool,
-        prediction: Any = None,              # Value at leaf (class or mean for regression)
-        feature: Optional[str] = None,       # Which feature is used to split
-        threshold: Optional[float] = None,   # Threshold for numeric split
+        prediction: Any = None,              # Tells what value is at leaf (class or mean for regression)
+        feature: Optional[str] = None,       # Tells which feature is used to split
+        threshold: Optional[float] = None,   # Tells about the threshold for numeric split
         children: Optional[Dict[Any, "_Node"]] = None,  # For categorical splits
         left: Optional["_Node"] = None,      # Left child for <= threshold
         right: Optional["_Node"] = None,     # Right child for > threshold
@@ -48,12 +47,11 @@ class _Node:
         self.right = right
 
 
-# ------------------------------ Tree ---------------------------------
 @dataclass
 class DecisionTree:
-    criterion: Literal["information_gain", "gini_index"]  # Split rule for classification
-    max_depth: int = 5                                    # Maximum depth allowed
-    one_hot_categoricals: bool = True                     # If True, one-hot encode categorical inputs
+    criterion: Literal["information_gain", "gini_index"]  # This is the split rule used for classification
+    max_depth: int = 5                                    # The maximum depth allowed for the tree
+    one_hot_categoricals: bool = True                    
 
     def __init__(self, criterion: Literal["information_gain", "gini_index"],
                  max_depth: int = 5, one_hot_categoricals: bool = True):
@@ -61,13 +59,13 @@ class DecisionTree:
         self.max_depth = max_depth
         self.one_hot_categoricals = one_hot_categoricals
 
-        # Will be set later during training
+
         self._root: Optional[_Node] = None
         self._task: Optional[Literal["classification", "regression"]] = None
         self.classes_: Optional[np.ndarray] = None
-        self._train_cols: Optional[pd.Index] = None  # Save training columns after OHE
+        self._train_cols: Optional[pd.Index] = None 
 
-    # ----------------------------- Public API -----------------------------
+
     def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
         """
         Train the decision tree.
@@ -75,19 +73,17 @@ class DecisionTree:
         X = X.copy(); y = y.copy()
         assert len(X) == len(y), "X and y must have same length."
 
-        # Convert categoricals → numeric columns if enabled
+        # This will convert the categories to numeric columns
         if self.one_hot_categoricals:
             X = one_hot_encoding(X)
 
-        self._train_cols = X.columns  # Remember column order
+        self._train_cols = X.columns  # To Remember column order
 
-        # Detect whether it's regression (real output) or classification (discrete)
+        # This will detect whether it's regression (real output) or classification (discrete)
         self._task = "regression" if check_ifreal(y) else "classification"
         if self._task == "classification":
-            # Keep consistent ordering of classes for printing/prediction
             self.classes_ = np.array(sorted(y.unique(), key=lambda z: str(z)))
 
-        # Build the tree recursively
         self._root = self._grow(X, y, depth=0)
 
     def predict(self, X: pd.DataFrame) -> pd.Series:
@@ -98,7 +94,7 @@ class DecisionTree:
         # Apply same preprocessing as training
         if self.one_hot_categoricals:
             X = one_hot_encoding(X)
-            X = X.reindex(columns=self._train_cols, fill_value=0)  # Ensure same cols as training
+            X = X.reindex(columns=self._train_cols, fill_value=0)
 
         preds = []
         for _, row in X.iterrows():
@@ -112,15 +108,15 @@ class DecisionTree:
         self._render(self._root, prefix="", lines=lines)
         print("\n".join(lines))
 
-    # ------------------------- Recursive builder -------------------------
+
     def _grow(self, X: pd.DataFrame, y: pd.Series, depth: int) -> _Node:
-        # Stop if: depth too large, only one class/constant output left, or no features
+        # Will stop growing the tree if depth too large, only one class/constant output left or no features
         if depth >= self.max_depth or y.nunique(dropna=False) <= 1 or X.shape[0] == 0 or X.shape[1] == 0:
             return _Node(depth=depth, is_leaf=True, prediction=self._leaf_value(y))
 
-        # Pick best split using utils.opt_split_attribute
+        # This is used to pick up the best feature using utils.opt_split_attribute
         best = opt_split_attribute(X, y, self.criterion, features=pd.Series(X.columns))
-        if best is None:  # No good split found
+        if best is None: 
             return _Node(depth=depth, is_leaf=True, prediction=self._leaf_value(y))
 
         feature = best["feature"]
@@ -129,7 +125,7 @@ class DecisionTree:
             thr = float(best["threshold"])
             mask = X[feature] <= thr
 
-            # If split puts all samples on one side → stop
+            # If split puts all samples on one side then it will stop
             n_left = int(mask.sum())
             if n_left == 0 or n_left == len(X):
                 return _Node(depth=depth, is_leaf=True, prediction=self._leaf_value(y))
@@ -140,32 +136,31 @@ class DecisionTree:
             return _Node(depth=depth, is_leaf=False, feature=feature, threshold=thr,
                          left=left, right=right)
 
-        # If categorical (rare with OHE on): build one child per value
         children: Dict[Any, _Node] = {}
         for v, idx in X[feature].groupby(X[feature]).groups.items():
             Xv, yv = X.loc[idx], y.loc[idx]
             children[v] = self._grow(Xv, yv, depth + 1)
         return _Node(depth=depth, is_leaf=False, feature=feature, children=children)
 
-    # ----------------------------- Utilities -----------------------------
+
     def _leaf_value(self, y: pd.Series):
-        # Leaf stores average value (regression) or most common class (classification)
+        # Leaf stores average value showing regression or most common class showing classification
         if self._task == "regression":
             return float(y.mean()) if len(y) else 0.0
         counts = y.value_counts()
         winners = counts[counts == counts.max()].index
-        return sorted(winners, key=lambda z: str(z))[0]  # Tie-break by label name
+        return sorted(winners, key=lambda z: str(z))[0] 
 
     def _predict_row(self, row: pd.Series, node: _Node):
-        # If we are at a leaf → return stored prediction
+        # If we are at a leaf then it will return the stored prediction
         if node.is_leaf:
             return node.prediction
 
-        # If numeric split
+        # If there is a numeric split
         if node.threshold is not None:
             val = row.get(node.feature)
 
-            # If missing value → send to bigger subtree
+            # If there is a missing value then we send it to bigger subtree
             if val is None or (isinstance(val, float) and np.isnan(val)):
                 go_left = self._size(node.left) >= self._size(node.right)
             else:
@@ -173,17 +168,16 @@ class DecisionTree:
 
             return self._predict_row(row, node.left if go_left else node.right)
 
-        # If categorical split
+        # If there is a categorical split
         if node.children is not None:
             val = row.get(node.feature)
             child = node.children.get(val)
             if child is None:
-                # If unseen category → fallback to biggest subtree
+                # If there is an unseen category it will fallback to biggest subtree
                 sizes = {k: self._size(v) for k, v in node.children.items()}
                 child = node.children[max(sizes, key=sizes.get)]
             return self._predict_row(row, child)
 
-        # Fallback (shouldn’t happen)
         return node.prediction
 
     def _size(self, node: Optional[_Node]) -> int:
@@ -213,13 +207,15 @@ class DecisionTree:
             return
 
         if node.threshold is not None:
-            # Numeric split → print threshold
+            # If there is a numeric split it will print the threshold value
             lines.append(f"{indent}{prefix}?( {node.feature} <= {node.threshold:.4g} )")
             self._render(node.left,  "Y: ", lines)
             self._render(node.right, "N: ", lines)
         else:
-            # Categorical split → print each branch
+            # If there is a categorical split it will print the branch
             lines.append(f"{indent}{prefix}?( {node.feature} ∈ {{...}} )")
             for k in sorted(node.children.keys(), key=lambda z: str(z)):
                 self._render(node.children[k], f"{k}: ", lines)
+
+
 
