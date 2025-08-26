@@ -1,89 +1,76 @@
 """
-The current code given is for the Assignment 1.
-You will be expected to use this to make trees for:
-> discrete input, discrete output
+Usage script for DecisionTree.
+Covers all 4 cases:
 > real input, real output
 > real input, discrete output
+> discrete input, discrete output
 > discrete input, real output
 """
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from tree.base import DecisionTree
-from metrics import *
+from metrics import accuracy, precision, recall, rmse, mae
 
 np.random.seed(42)
-# Test case 1
-# Real Input and Real Output
 
-N = 30
-P = 5
-X = pd.DataFrame(np.random.randn(N, P))
-y = pd.Series(np.random.randn(N))
+# Case 1: Real input, Real output (Regression)
 
-
-for criteria in ["information_gain", "gini_index"]:
-    tree = DecisionTree(criterion=criteria)  # Split based on Inf. Gain
+print("\n Case 1: Real Input, Real Output ")
+X = pd.DataFrame(np.random.randn(30, 5))
+y = pd.Series(np.random.randn(30))
+for crit in ["information_gain", "gini_index"]:
+    tree = DecisionTree(criterion=crit)
     tree.fit(X, y)
     y_hat = tree.predict(X)
     tree.plot()
-    print("Criteria :", criteria)
-    print("RMSE: ", rmse(y_hat, y))
-    print("MAE: ", mae(y_hat, y))
+    print(f"Criteria: {crit}")
+    print(f"RMSE: {rmse(y_hat, y):.3f}, MAE: {mae(y_hat, y):.3f}\n")
 
-# Test case 2
-# Real Input and Discrete Output
 
-N = 30
-P = 5
-X = pd.DataFrame(np.random.randn(N, P))
-y = pd.Series(np.random.randint(P, size=N), dtype="category")
+# Case 2: Real input, Discrete output (Classification)
 
-for criteria in ["information_gain", "gini_index"]:
-    tree = DecisionTree(criterion=criteria)  # Split based on Inf. Gain
+print("\n Case 2: Real Input, Discrete Output")
+X = pd.DataFrame(np.random.randn(30, 5))
+y = pd.Series(np.random.randint(5, size=30), dtype="category")
+for crit in ["information_gain", "gini_index"]:
+    tree = DecisionTree(criterion=crit)
     tree.fit(X, y)
     y_hat = tree.predict(X)
     tree.plot()
-    print("Criteria :", criteria)
-    print("Accuracy: ", accuracy(y_hat, y))
+    print(f"Criteria: {crit}")
+    print("Accuracy:", accuracy(y_hat, y))
     for cls in y.unique():
-        print("Precision: ", precision(y_hat, y, cls))
-        print("Recall: ", recall(y_hat, y, cls))
+        print(f"Class {cls}: Precision={precision(y_hat, y, cls):.3f}, Recall={recall(y_hat, y, cls):.3f}")
+    print()
 
 
-# Test case 3
-# Discrete Input and Discrete Output
+# Case 3: Discrete input, Discrete output
 
-N = 30
-P = 5
-X = pd.DataFrame({i: pd.Series(np.random.randint(P, size=N), dtype="category") for i in range(5)})
-y = pd.Series(np.random.randint(P, size=N), dtype="category")
-
-for criteria in ["information_gain", "gini_index"]:
-    tree = DecisionTree(criterion=criteria)  # Split based on Inf. Gain
+print("\n Case 3: Discrete Input, Discrete Output")
+X = pd.DataFrame({i: pd.Series(np.random.randint(5, size=30), dtype="category") for i in range(5)})
+y = pd.Series(np.random.randint(5, size=30), dtype="category")
+for crit in ["information_gain", "gini_index"]:
+    tree = DecisionTree(criterion=crit)
     tree.fit(X, y)
     y_hat = tree.predict(X)
     tree.plot()
-    print("Criteria :", criteria)
-    print("Accuracy: ", accuracy(y_hat, y))
+    print(f"Criteria: {crit}")
+    print("Accuracy:", accuracy(y_hat, y))
     for cls in y.unique():
-        print("Precision: ", precision(y_hat, y, cls))
-        print("Recall: ", recall(y_hat, y, cls))
+        print(f"Class {cls}: Precision={precision(y_hat, y, cls):.3f}, Recall={recall(y_hat, y, cls):.3f}")
+    print()
 
-# Test case 4
-# Discrete Input and Real Output
 
-N = 30
-P = 5
-X = pd.DataFrame({i: pd.Series(np.random.randint(P, size=N), dtype="category") for i in range(5)})
-y = pd.Series(np.random.randn(N))
+# Case 4: Discrete input, Real output (Regression)
 
-for criteria in ["information_gain", "gini_index"]:
-    tree = DecisionTree(criterion=criteria)  # Split based on Inf. Gain
+print("\n Case 4: Discrete Input, Real Output")
+X = pd.DataFrame({i: pd.Series(np.random.randint(5, size=30), dtype="category") for i in range(5)})
+y = pd.Series(np.random.randn(30))
+for crit in ["information_gain", "gini_index"]:
+    tree = DecisionTree(criterion=crit)
     tree.fit(X, y)
     y_hat = tree.predict(X)
     tree.plot()
-    print("Criteria :", criteria)
-    print("RMSE: ", rmse(y_hat, y))
-    print("MAE: ", mae(y_hat, y))
+    print(f"Criteria: {crit}")
+    print(f"RMSE: {rmse(y_hat, y):.3f}, MAE: {mae(y_hat, y):.3f}\n")

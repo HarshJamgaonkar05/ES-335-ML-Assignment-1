@@ -1,46 +1,42 @@
 from typing import Union
 import pandas as pd
+import numpy as np
 
+def accuracy(y_cap: pd.Series, y: pd.Series) -> float:
+    """
+    Function to calculate the accuracy.
+    """
+    assert y_cap.size == y.size, "Input series must have the same size."
+    return (y_cap == y).sum() / len(y)
 
-def accuracy(y_hat: pd.Series, y: pd.Series) -> float:
+def precision(y_cap: pd.Series, y: pd.Series, cls: Union[int, str]) -> float:
     """
-    Function to calculate the accuracy
+    Function to calculate the precision.
     """
+    assert y_cap.size == y.size, "Input series must have the same size."
+    true_positives = ((y_cap == cls) & (y == cls)).sum()
+    predicted_positives = (y_cap == cls).sum()
+    return true_positives / predicted_positives if predicted_positives > 0 else 0.0
 
+def recall(y_cap: pd.Series, y: pd.Series, cls: Union[int, str]) -> float:
     """
-    The following assert checks if sizes of y_hat and y are equal.
-    Students are required to add appropriate assert checks at places to
-    ensure that the function does not fail in corner cases.
+    Function to calculate the recall.
     """
-    assert y_hat.size == y.size
-    # TODO: Write here
-    pass
+    assert y_cap.size == y.size, "Input series must have the same size."
+    true_positives = ((y_cap == cls) & (y == cls)).sum()
+    actual_positives = (y == cls).sum()
+    return true_positives / actual_positives if actual_positives > 0 else 0.0
 
-
-def precision(y_hat: pd.Series, y: pd.Series, cls: Union[int, str]) -> float:
+def rmse(y_cap: pd.Series, y: pd.Series) -> float:
     """
-    Function to calculate the precision
+    Function to calculate the root-mean-squared-error(rmse).
     """
-    pass
+    assert y_cap.size == y.size, "Input series must have the same size."
+    return np.sqrt(np.mean((y_cap - y)**2))
 
-
-def recall(y_hat: pd.Series, y: pd.Series, cls: Union[int, str]) -> float:
+def mae(y_cap: pd.Series, y: pd.Series) -> float:
     """
-    Function to calculate the recall
+    Function to calculate the mean-absolute-error(mae).
     """
-    pass
-
-
-def rmse(y_hat: pd.Series, y: pd.Series) -> float:
-    """
-    Function to calculate the root-mean-squared-error(rmse)
-    """
-
-    pass
-
-
-def mae(y_hat: pd.Series, y: pd.Series) -> float:
-    """
-    Function to calculate the mean-absolute-error(mae)
-    """
-    pass
+    assert y_cap.size == y.size, "Input series must have the same size."
+    return np.mean(np.abs(y_cap - y))

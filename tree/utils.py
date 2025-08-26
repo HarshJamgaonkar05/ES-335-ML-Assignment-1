@@ -1,77 +1,153 @@
 """
-You can add your own functions here according to your decision tree implementation.
-There is no restriction on following the below template, these fucntions are here to simply help you.
+Helper utilities for the Decision Tree implementation.
 """
 
+from __future__ import annotations
+import numpy as np
 import pandas as pd
 
+
+# --------- basic helpers ---------
 def one_hot_encoding(X: pd.DataFrame) -> pd.DataFrame:
     """
-    Function to perform one hot encoding on the input data
+    Convert categorical columns into binary (0/1) dummy variables.
+    Keeps numeric columns as they are.
     """
+    return pd.get_dummies(X, drop_first=False)
 
-    pass
 
-def check_ifreal(y: pd.Series) -> bool:
+def check_ifreal(y: pd.Series, max_discrete_classes: int = 15) -> bool:
     """
-    Function to check if the given series has real or discrete values
+    Decide if target y is regression (real) or classification (discrete).
+    - Non-numeric → classification
+    - Float dtype → regression
+    - Integer dtype:
+        * Few unique values (<= max_discrete_classes) → classification
+        * Many unique values → regression
     """
+    if not pd.api.types.is_numeric_dtype(y):
+        return False  # categorical/object => classification
+    if pd.api.types.is_float_dtype(y):
+        return True   # float => regression
+    n_unique = int(y.nunique(dropna=False))
+    return False if n_unique <= max_discrete_classes else True
 
-    pass
 
-
+# --------- impurity measures ---------
 def entropy(Y: pd.Series) -> float:
-    """
-    Function to calculate the entropy
-    """
-
-    pass
+    """Shannon entropy: measures uncertainty in labels."""
+    if len(Y) == 0:
+        return 0.0
+    p = Y.value_counts(normalize=True).values.astype(float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        h = -p * np.log2(p, where=(p > 0))
+    h[~np.isfinite(h)] = 0.0
+    return float(h.sum())
 
 
 def gini_index(Y: pd.Series) -> float:
+    """Gini impurity: probability of misclassification."""
+    if len(Y) == 0:
+        return 0.0
+    p = Y.value_counts(normalize=True).values.astype(float)
+    return float(1.0 - np.sum(p ** 2))
+
+
+def mse(Y: pd.Series) -> float:
+    """Mean squared error: variance around mean (for regression)."""
+    if len(Y) == 0:
+        return 0.0
+    mu = float(Y.mean())
+    return float(((Y - mu) ** 2).mean())
+
+
+# --------- information gain / reduction ---------
+def information_gain(Y: pd.Series, split_labels: pd.Series, criterion: str) -> float:
     """
-    Function to calculate the gini index
+    Calculate how much "impurity" is reduced after a split.
+    - For regression: uses MSE
+    - For classification: uses entropy or gini
     """
+    split_labels = split_labels.reindex(Y.index).fillna("__NAN__SPLIT__")
+    N = len(Y)
+    if N == 0:
+        return 0.0
 
-    pass
+    if criterion == "mse":  # regression
+        parent = mse(Y)
+        child_imp = 0.0
+        for _, idx in split_labels.groupby(split_labels, sort=False).groups.items():
+            Yi = Y.loc[idx]
+            child_imp += (len(Yi) / N) * mse(Yi)
+        return parent - child_imp
+
+    # classification
+    parent = entropy(Y) if criterion == "entropy" else gini_index(Y)
+    child_imp = 0.0
+    for _, idx in split_labels.groupby(split_labels, sort=False).groups.items():
+        Yi = Y.loc[idx]
+        imp = entropy(Yi) if criterion == "entropy" else gini_index(Yi)
+        child_imp += (len(Yi) / N) * imp
+    return parent - child_imp
 
 
-def information_gain(Y: pd.Series, attr: pd.Series, criterion: str) -> float:
+# --------- attribute search ---------
+def opt_split_attribute(X: pd.DataFrame, y: pd.Series, criterion: str, features: pd.Series):
     """
-    Function to calculate the information gain using criterion (entropy, gini index or MSE)
+    Find the best feature (and threshold if numeric) to split on.
+    - Numeric: test midpoints between sorted unique values
+    - Categorical: split by unique categories
+    Returns best feature and gain, or None if no good split.
     """
+    task_is_regression = check_ifreal(y)
+    crit = "mse" if task_is_regression else ("entropy" if criterion == "information_gain" else "gini")
 
-    pass
+    best, best_gain = None, 1e-12
 
+    for feature in features:
+        s = X[feature]
 
-def opt_split_attribute(X: pd.DataFrame, y: pd.Series, criterion, features: pd.Series):
-    """
-    Function to find the optimal attribute to split about.
-    If needed you can split this function into 2, one for discrete and one for real valued features.
-    You can also change the parameters of this function according to your implementation.
+        if pd.api.types.is_numeric_dtype(s):  # numeric feature
+            arr = s.astype(float).values
+            arr = arr[~np.isnan(arr)]
+            if arr.size <= 1:
+                continue
+            vals = np.unique(arr)
+            if vals.size <= 1:
+                continue
+            thr_cands = (vals[:-1] + vals[1:]) / 2.0  # midpoints
+            col = s.values
+            for t in thr_cands:
+                split = pd.Series(np.where(col <= t, 0, 1), index=X.index)
+                gain = information_gain(y, split, crit)
+                if gain > best_gain:
+                    best_gain = gain
+                    best = {"feature": feature, "kind": "numeric", "threshold": float(t), "gain": float(gain)}
 
-    features: pd.Series is a list of all the attributes we have to split upon
+        else:  # categorical feature
+            if s.nunique(dropna=False) <= 1:
+                continue
+            split = s.astype("object").fillna("__NAN__CAT__")
+            gain = information_gain(y, split, crit)
+            if gain > best_gain:
+                best_gain = gain
+                best = {"feature": feature, "kind": "categorical", "threshold": None, "gain": float(gain)}
 
-    return: attribute to split upon
-    """
-
-    # According to wheather the features are real or discrete valued and the criterion, find the attribute from the features series with the maximum information gain (entropy or varinace based on the type of output) or minimum gini index (discrete output).
-
-    pass
+    return best
 
 
 def split_data(X: pd.DataFrame, y: pd.Series, attribute, value):
     """
-    Funtion to split the data according to an attribute.
-    If needed you can split this function into 2, one for discrete and one for real valued features.
-    You can also change the parameters of this function according to your implementation.
-
-    attribute: attribute/feature to split upon
-    value: value of that attribute to split upon
-
-    return: splitted data(Input and output)
+    Actually split dataset on chosen feature:
+    - If numeric: split <= threshold vs > threshold
+    - If categorical: split equals value vs not
     """
+    s = X[attribute]
+    if pd.api.types.is_numeric_dtype(s) and isinstance(value, (int, float, np.floating)):
+        mask = s <= float(value)
+        return (X[mask], y[mask]), (X[~mask], y[~mask])
+    else:
+        mask = s.astype("object") == value
+        return X[mask], y[mask]
 
-    # Split the data based on a particular value of a particular attribute. You may use masking as a tool to split the data.
 
-    pass
